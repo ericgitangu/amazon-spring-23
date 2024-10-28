@@ -1,7 +1,15 @@
-from termcolor import colored
-from collections import deque
-import time
+import heapq
+import asyncio
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import random
+import time
+from collections import deque
+from termcolor import colored
+import logging
+import functools
+import numpy as np
+
 class Solution:
     """
     2534. Time Taken to Cross the Door - HARD
@@ -185,6 +193,162 @@ class Solution:
 
         return answer
     
+    @functools.lru_cache(maxsize=None)
+    def timeTakenToCross_with_heapq(self) -> list[int]:
+        n = len(self.arrival)
+        answer = [-1] * n
+        current_time = 0
+        enter_heap = []  # Min-heap for enter priority
+        exit_heap = []   # Min-heap for exit priority
+        i = 0
+        last_direction = 1  # Assume door defaults to exit if idle
+
+        while i < n or enter_heap or exit_heap:
+            while i < n and self.arrival[i] <= current_time:
+                if self.state[i] == 0:
+                    heapq.heappush(enter_heap, (self.arrival[i], i))
+                    print(colored(f"Time {current_time + 1}: Person {i+1} arrives to Enter", 'cyan'))
+                else:
+                    heapq.heappush(exit_heap, (self.arrival[i], i))
+                    print(colored(f"Time {current_time + 1}: Person {i+1} arrives to Exit", 'magenta'))
+                i += 1
+
+            # Determine who should cross
+            if exit_heap or enter_heap:
+                if last_direction == 1:  # Priority to exit
+                    if exit_heap:
+                        _, index = heapq.heappop(exit_heap)
+                        last_direction = 1
+                    elif enter_heap:
+                        _, index = heapq.heappop(enter_heap)
+                        last_direction = 0
+                else:  # Priority to enter
+                    if enter_heap:
+                        _, index = heapq.heappop(enter_heap)
+                        last_direction = 0
+                    elif exit_heap:
+                        _, index = heapq.heappop(exit_heap)
+                        last_direction = 1
+
+                answer[index] = current_time
+                print(colored(f"Time {current_time + 1}: Person {index+1} {'Exits' if last_direction == 1 else 'Enters'} through the door", 'green'))
+            else:
+                last_direction = 1  # Reset to default if no one is waiting
+                print(colored(f"Time {current_time + 1}: No one is at the door", 'red'))
+
+            current_time += 1
+        return answer
+
+    @functools.lru_cache(maxsize=None)
+    def timeTakenToCross_with_heapq(self) -> list[int]:
+        n = len(self.arrival)
+        answer = [-1] * n
+        current_time = 0
+        enter_heap = []  # Min-heap for enter priority
+        exit_heap = []   # Min-heap for exit priority
+        i = 0
+        last_direction = 1  # Assume door defaults to exit if idle
+
+        while i < n or enter_heap or exit_heap:
+            while i < n and self.arrival[i] <= current_time:
+                if self.state[i] == 0:
+                    heapq.heappush(enter_heap, (self.arrival[i], i))
+                    logging.debug(f"Time {current_time + 1}: Person {i+1} arrives to Enter")
+                else:
+                    heapq.heappush(exit_heap, (self.arrival[i], i))
+                    logging.debug(f"Time {current_time + 1}: Person {i+1} arrives to Exit")
+                i += 1
+
+            # Determine who should cross
+            if exit_heap or enter_heap:
+                if last_direction == 1:  # Priority to exit
+                    if exit_heap:
+                        _, index = heapq.heappop(exit_heap)
+                        last_direction = 1
+                    elif enter_heap:
+                        _, index = heapq.heappop(enter_heap)
+                        last_direction = 0
+                else:  # Priority to enter
+                    if enter_heap:
+                        _, index = heapq.heappop(enter_heap)
+                        last_direction = 0
+                    elif exit_heap:
+                        _, index = heapq.heappop(exit_heap)
+                        last_direction = 1
+
+                answer[index] = current_time
+                logging.info(f"Time {current_time + 1}: Person {index+1} {'Exits' if last_direction == 1 else 'Enters'} through the door")
+            else:
+                last_direction = 1  # Reset to default if no one is waiting
+                logging.debug(f"Time {current_time + 1}: No one is at the door")
+
+            current_time += 1
+        return answer
+    async def timeTakenToCross_async(self) -> list[int]:
+        logging.info("Running async version...")
+        # Run the optimized version in a background thread
+        return await asyncio.to_thread(self.timeTakenToCross_with_heapq)
+
+    def visualize(self, result: list[int]):
+        # Visualize the crossing times
+        plt.figure(figsize=(10, 5))
+        plt.bar(range(len(result)), result, color='skyblue')
+        plt.xlabel('Person Index')
+        plt.ylabel('Crossing Time (Seconds)')
+        plt.title('Time Taken for Each Person to Cross the Door')
+        plt.show()
+
+    def visualize_with_animation(self, result: list[int]):
+        fig, ax = plt.subplots()
+        ax.set_xlim(0, len(result))
+        ax.set_ylim(0, max(result) + 1)
+        bar_container = ax.bar(range(len(result)), [0] * len(result), color='skyblue')
+
+        def update(frame):
+            for bar, val in zip(bar_container, result):
+                bar.set_height(val if val <= frame else 0)
+
+        ani = animation.FuncAnimation(fig, update, frames=max(result) + 1, repeat=False)
+        plt.xlabel('Person Index')
+        plt.ylabel('Crossing Time (Seconds)')
+        plt.title('Animated Time Taken for Each Person to Cross the Door')
+        plt.show()
+
+    def profile_performance(self):
+        import cProfile
+        import pstats
+        from io import StringIO
+
+        pr = cProfile.Profile()
+        pr.enable()
+        result = self.timeTakenToCross_with_heapq()
+        pr.disable()
+        s = StringIO()
+        ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
+        ps.print_stats()
+        logging.info(s.getvalue())
+        return result
+
+    def simulate_real_time(self, result: list[int]):
+        # Simulate real-time streaming using asyncio and logging
+        async def stream_results():
+            for i, time in enumerate(result):
+                await asyncio.sleep(0.5)  # Simulate half a second per event
+                logging.info(f"Real-time update: Person {i+1} crossed at time {time+1}")
+
+        asyncio.run(stream_results())
+
+    def advanced_visualization(self, result: list[int]):
+        # Using a heatmap to show crossing times
+        data = np.array([result])
+        fig, ax = plt.subplots(figsize=(10, 2))
+        cax = ax.imshow(data, cmap='viridis', aspect='auto')
+        ax.set_title('Heatmap of Crossing Times')
+        ax.set_xlabel('Person Index')
+        fig.colorbar(cax, orientation='vertical')
+        plt.show()
+
+    
 def generate_test_case(n):
         arrival = sorted(random.randint(0, n//2) for _ in range(n))
         state = [random.randint(0, 1) for _ in range(n)]
@@ -192,24 +356,51 @@ def generate_test_case(n):
     
 if __name__ == "__main__":
 
-    solution = Solution([0,1,1,2,4], [0,1,0,0,1])
-    print(colored(f"{solution}", 'magenta'))
-    print(colored('-' * 100, 'red'))
+    # Example arrival and state lists
+    arrival = [0, 1, 1, 2, 4]
+    state = [0, 1, 0, 0, 1]
 
-    start_time = time.time()
-    result = solution.timeTakenToCross()
-    end_time = time.time()
-    print(colored(f"\nFinal crossing times: {result}", 'blue'))
-    print(colored(f"Time taken for timeTakenToCross: {end_time - start_time} seconds", 'yellow'))
-    print(colored('-' * 100, 'red'))
+    solution = Solution(arrival, state)
 
-    start_time = time.time()
-    result = solution.timeTakenToCross_enhanced()
-    end_time = time.time()
-    
-    print(colored('-' * 100, 'red'))
+    # List of methods to test
+    methods = [
+        ("Original Approach", solution.timeTakenToCross),
+        ("Optimized Approach", solution.timeTakenToCross_enhanced),
+        ("Heapq Approach", solution.timeTakenToCross_with_heapq),
+        # The async method needs to be handled separately
+    ]
+
+    # Run each method and display results
+    for name, method in methods:
+        print(colored(f"Running {name}...", 'yellow'))
+        start_time = time.time()
+        result = method()
+        end_time = time.time()
+        print(colored(f"\n{name} crossing times: {result}", 'blue'))
+        print(colored(f"Time taken for {name}: {end_time - start_time:.6f} seconds", 'yellow'))
+        print(colored('-' * 100, 'red'))
+
+    # Now handle the async method
+    async def run_async_method():
+        print(colored("Running Async Approach...", 'yellow'))
+        start_time = time.time()
+        result = await solution.timeTakenToCross_async()
+        end_time = time.time()
+        print(colored(f"\nAsync Approach crossing times: {result}", 'blue'))
+        print(colored(f"Time taken for Async Approach: {end_time - start_time:.6f} seconds", 'yellow'))
+        print(colored('-' * 100, 'red'))
+
+        # Optionally visualize the result
+    # solution.visualize(result)
+    solution.visualize_with_animation(result)
+
+    asyncio.run(run_async_method())
+
+    # For profiling performance
+    print(colored("Running Profile Performance...", 'yellow'))
+    result = solution.profile_performance()
     print(colored(f"\nFinal crossing times: {result}", 'blue'))
-    print(colored(f"Time taken for timeTakenToCross_enhanced: {end_time - start_time} seconds", 'yellow'))
+
     print(colored('-' * 100, 'red'))
     
  
